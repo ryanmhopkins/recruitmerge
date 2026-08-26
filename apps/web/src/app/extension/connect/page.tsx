@@ -7,6 +7,18 @@ import { createSupabaseBrowserClient } from '../../../lib/supabase-browser';
 
 const supabase = createSupabaseBrowserClient();
 
+type ExtensionResponse = { ok?: boolean };
+type WebChrome = {
+  runtime?: {
+    lastError?: { message?: string };
+    sendMessage: (extensionId: string, message: unknown, callback: (response?: ExtensionResponse) => void) => void;
+  };
+};
+
+function getChrome() {
+  return (window as unknown as { chrome?: WebChrome }).chrome;
+}
+
 function ExtensionConnectForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -27,7 +39,8 @@ function ExtensionConnectForm() {
   }, [extensionId, router]);
 
   async function connect() {
-    if (!extensionId || !window.chrome?.runtime?.sendMessage) {
+    const browserChrome = getChrome();
+    if (!extensionId || !browserChrome?.runtime?.sendMessage) {
       setMessage('Open this page from the RecruitMerge Chrome extension and try again.');
       return;
     }
@@ -37,11 +50,11 @@ function ExtensionConnectForm() {
       return;
     }
 
-    window.chrome.runtime.sendMessage(extensionId, {
+    browserChrome.runtime.sendMessage(extensionId, {
       type: 'RECRUITMERGE_CONNECT',
       session: { accessToken: data.session.access_token, refreshToken: data.session.refresh_token },
     }, (response) => {
-      if (window.chrome?.runtime?.lastError || !response?.ok) {
+      if (getChrome()?.runtime?.lastError || !response?.ok) {
         setMessage('The extension could not be reached. Make sure it is installed and retry.');
         return;
       }
