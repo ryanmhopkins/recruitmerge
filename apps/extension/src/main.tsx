@@ -39,8 +39,19 @@ async function detect():Promise<Candidate>{
 }
 
 function App(){
-  const[c,setC]=useState<Candidate>(empty);const[job,setJob]=useState('');const[notes,setNotes]=useState('');const[status,setStatus]=useState('Detecting profile…');const[connected,setConnected]=useState(false);const[saving,setSaving]=useState(false);
-  useEffect(()=>{Promise.all([detect(),chrome.storage.local.get('recruitmergeSession')]).then(([v,stored])=>{setC(v);setConnected(Boolean(stored.recruitmergeSession));setStatus(v.name?'Candidate detected':'Open a LinkedIn profile')}).catch(()=>setStatus('Could not read this page'))},[]);
+  const[c,setC]=useState<Candidate>(empty);const[job,setJob]=useState('');const[notes,setNotes]=useState('');const[status,setStatus]=useState('Detecting profile…');const[connected,setConnected]=useState(false);const[saving,setSaving]=useState(false);const[detecting,setDetecting]=useState(true);
+
+  const refresh=async()=>{
+    setDetecting(true);setStatus('Detecting profile…');
+    try{
+      const v=await detect();setC(v);
+      setStatus(v.name?'Candidate detected':'No profile data yet — wait for LinkedIn to finish loading, then retry.');
+    }catch(error){
+      setC(empty);setStatus(error instanceof Error&&error.message.includes('Cannot access')?'LinkedIn blocked page access — refresh the tab and retry.':'Could not read this page — refresh LinkedIn and retry.');
+    }finally{setDetecting(false);}
+  };
+
+  useEffect(()=>{Promise.all([detect(),chrome.storage.local.get('recruitmergeSession')]).then(([v,stored])=>{setC(v);setConnected(Boolean(stored.recruitmergeSession));setStatus(v.name?'Candidate detected':'No profile data yet — wait for LinkedIn to finish loading, then retry.')}).catch(()=>setStatus('Could not read this page — refresh LinkedIn and retry.')).finally(()=>setDetecting(false))},[]);
 
   const connect=()=>chrome.tabs.create({url:`https://recruitmerge.vercel.app/extension/connect?extensionId=${encodeURIComponent(chrome.runtime.id)}`});
 
@@ -60,10 +71,10 @@ function App(){
 
     const linkedinUrl=c.linkedinUrl.split('?')[0].replace(/\/$/,'');
     const {error}=await supabase.from('candidates').insert({user_id:sessionData.user.id,name:c.name,title:c.title||null,company:c.company||null,location:c.location||null,linkedin_url:linkedinUrl,job:job||null,notes:notes||null});
-    if(error){setStatus(error.code==='23505'?'Already in your dashboard':error.message);setSaving(false);return;}
+    if(error){setStatus(error.code==='23505'?'Already saved — this profile is in your dashboard.':error.hint||error.message);setSaving(false);return;}
     setStatus('Saved to dashboard ✓');setSaving(false);
   };
 
-  return <div className="wrap"><div className="top"><b>RecruitMerge</b><span className={connected?'connected':''}>{connected?'Cloud connected':status}</span></div>{!connected&&<div className="connect"><p>Connect your RecruitMerge account to sync candidates securely.</p><button onClick={connect}>Connect account</button></div>}<div className="person"><h1>{c.name||'No candidate detected'}</h1><p>{c.title||'Open a candidate profile to begin'}</p>{c.location&&<p>{c.location}</p>}</div><label>JOB</label><input value={job} onChange={e=>setJob(e.target.value)} placeholder="Senior Designer"/><label>NOTES</label><textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Add a sourcing note"/><button disabled={!c.name||!connected||saving} onClick={save}>{saving?'Saving…':'Save to dashboard'}</button>{connected&&<p className="status">{status}</p>}</div>;
+  return <div className="wrap"><div className="top"><b>RecruitMerge</b><span className={connected?'connected':''}>{connected?'Cloud connected':status}</span></div>{!connected&&<div className="connect"><p>Connect your RecruitMerge account to sync candidates securely.</p><button onClick={connect}>Connect account</button></div>}<div className="person"><h1>{c.name||'No candidate detected'}</h1><p>{c.title||'Open a candidate profile to begin'}</p>{c.company&&<p>{c.company}</p>}{c.location&&<p>{c.location}</p>}</div><label>JOB</label><input value={job} onChange={e=>setJob(e.target.value)} placeholder="Senior Designer"/><label>NOTES</label><textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Add a sourcing note"/><button disabled={!c.name||!connected||saving} onClick={save}>{saving?'Saving…':'Save to dashboard'}</button><p className="status" role="status">{status}</p><div className="popup-links">{!c.name&&<button className="text-button" disabled={detecting} onClick={refresh}>{detecting?'Checking…':'Try detection again'}</button>}<button className="text-button" onClick={()=>chrome.tabs.create({url:'https://recruitmerge.vercel.app/dashboard'})}>Open dashboard</button></div></div>;
 }
 createRoot(document.getElementById('root')!).render(<App/>);

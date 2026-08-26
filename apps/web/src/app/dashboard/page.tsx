@@ -1,23 +1,36 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 import { createSupabaseBrowserClient } from '../../lib/supabase-browser';
 
 type Candidate = {
-  id: string;
-  name: string;
-  title: string | null;
-  company: string | null;
-  linkedin_url: string;
-  job: string | null;
-  notes: string | null;
-  created_at: string;
+  id: string; name: string; title: string | null; company: string | null;
+  location: string | null; linkedin_url: string; job: string | null;
+  notes: string | null; created_at: string;
 };
 
 const supabase = createSupabaseBrowserClient();
+const candidateColumns = 'id,name,title,company,location,linkedin_url,job,notes,created_at';
+
+function normalizeLinkedInUrl(value: string) {
+  try {
+    const url = new URL(value.trim());
+    url.search = '';
+    url.hash = '';
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return value.trim().split(/[?#]/)[0].replace(/\/$/, '');
+  }
+}
+
+function csvCell(value: string | null) {
+  let safe = value ?? '';
+  if (/^[=+\-@\t\r]/.test(safe)) safe = `'${safe}`;
+  return `"${safe.replace(/"/g, '""')}"`;
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -25,10 +38,12 @@ export default function DashboardPage() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const [query, setQuery] = useState('');
+  const [jobFilter, setJobFilter] = useState('all');
 
   const loadCandidates = useCallback(async () => {
-    const { data, error } = await supabase.from('candidates').select('id,name,title,company,linkedin_url,job,notes,created_at').order('created_at', { ascending: false });
-    if (error) setMessage(error.message);
+    const { data, error } = await supabase.from('candidates').select(candidateColumns).order('created_at', { ascending: false });
+    if (error) setMessage(error.hint || error.message);
     else setCandidates(data ?? []);
   }, []);
 
@@ -36,10 +51,7 @@ export default function DashboardPage() {
     let active = true;
     supabase.auth.getUser().then(async ({ data }) => {
       if (!active) return;
-      if (!data.user) {
-        router.replace('/login');
-        return;
-      }
+      if (!data.user) { router.replace('/login'); return; }
       setUser(data.user);
       await loadCandidates();
       if (active) setLoading(false);
@@ -47,12 +59,25 @@ export default function DashboardPage() {
     return () => { active = false; };
   }, [loadCandidates, router]);
 
+  const jobs = useMemo(() => Array.from(new Set(candidates.map((candidate) => candidate.job).filter((job): job is string => Boolean(job)))).sort(), [candidates]);
+  const visibleCandidates = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return candidates.filter((candidate) => {
+      const matchesJob = jobFilter === 'all' || (jobFilter === 'unassigned' ? !candidate.job : candidate.job === jobFilter);
+      if (!matchesJob) return false;
+      if (!needle) return true;
+      return [candidate.name, candidate.title, candidate.company, candidate.location, candidate.job, candidate.notes]
+        .some((value) => value?.toLowerCase().includes(needle));
+    });
+  }, [candidates, jobFilter, query]);
+
   async function addCandidate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!user) return;
     setMessage('');
-    const form = new FormData(event.currentTarget);
-    const linkedinUrl = String(form.get('linkedinUrl')).split('?')[0].replace(/\/$/, '');
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const linkedinUrl = normalizeLinkedInUrl(String(form.get('linkedinUrl')));
     const { error } = await supabase.from('candidates').insert({
       user_id: user.id,
       name: form.get('name'),
@@ -63,18 +88,34 @@ export default function DashboardPage() {
       notes: form.get('notes') || null,
     });
     if (error) {
-      setMessage(error.code === '23505' ? 'That LinkedIn profile is already in your list.' : error.message);
+      setMessage(error.code === '23505' ? 'Already saved — each LinkedIn profile can appear only once in your list.' : error.hint || error.message);
       return;
     }
-    event.currentTarget.reset();
+    formElement.reset();
     setMessage('Candidate saved.');
     await loadCandidates();
   }
 
   async function removeCandidate(id: string) {
+    if (!window.confirm('Remove this candidate from your sourcing list?')) return;
     const { error } = await supabase.from('candidates').delete().eq('id', id);
-    if (error) setMessage(error.message);
+    if (error) setMessage(error.hint || error.message);
     else setCandidates((items) => items.filter((item) => item.id !== id));
+  }
+
+  function exportCsv() {
+    const header = ['Name', 'Title', 'Company', 'Location', 'LinkedIn URL', 'Job or pipeline', 'Notes', 'Date added'];
+    const rows = visibleCandidates.map((candidate) => [
+      candidate.name, candidate.title, candidate.company, candidate.location, candidate.linkedin_url,
+      candidate.job, candidate.notes, new Date(candidate.created_at).toISOString(),
+    ]);
+    const csv = `\uFEFF${[header, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n')}`;
+    const href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = href;
+    anchor.download = `recruitmerge-candidates-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(href);
   }
 
   async function signOut() {
@@ -102,13 +143,21 @@ export default function DashboardPage() {
           <button className="button primary full">Save candidate</button>
           {message && <p className="form-message" role="status">{message}</p>}
         </form>
-        <section className="candidate-list">
-          {candidates.length === 0 ? <div className="card empty"><h2>No candidates yet</h2><p className="muted">Add your first candidate to confirm your workspace is ready.</p></div> : candidates.map((candidate) => (
-            <article className="card candidate-row" key={candidate.id}>
-              <div><h3>{candidate.name}</h3><p>{[candidate.title, candidate.company].filter(Boolean).join(' · ') || 'No title added'}</p><small>{candidate.job || 'Unassigned'} · {new Date(candidate.created_at).toLocaleDateString()}</small></div>
-              <div className="row-actions"><a href={candidate.linkedin_url} target="_blank" rel="noreferrer">Profile</a><button onClick={() => removeCandidate(candidate.id)}>Remove</button></div>
-            </article>
-          ))}
+        <section className="candidate-workspace">
+          <div className="candidate-tools">
+            <label className="search-field"><span className="sr-only">Search candidates</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, company, job, or notes" /></label>
+            <label className="filter-field"><span className="sr-only">Filter by job or pipeline</span><select value={jobFilter} onChange={(event) => setJobFilter(event.target.value)}><option value="all">All pipelines</option><option value="unassigned">Unassigned</option>{jobs.map((job) => <option key={job} value={job}>{job}</option>)}</select></label>
+            <button className="button export-button" disabled={visibleCandidates.length === 0} onClick={exportCsv}>Export CSV</button>
+          </div>
+          <p className="result-count muted">Showing {visibleCandidates.length} of {candidates.length}</p>
+          <div className="candidate-list">
+            {candidates.length === 0 ? <div className="card empty"><h2>No candidates yet</h2><p className="muted">Add your first candidate to confirm your workspace is ready.</p></div> : visibleCandidates.length === 0 ? <div className="card empty"><h2>No matches</h2><p className="muted">Try a different search or pipeline filter.</p></div> : visibleCandidates.map((candidate) => (
+              <article className="card candidate-row" key={candidate.id}>
+                <div><h3>{candidate.name}</h3><p>{[candidate.title, candidate.company].filter(Boolean).join(' · ') || 'No title added'}</p><small>{candidate.job || 'Unassigned'} · {new Date(candidate.created_at).toLocaleDateString()}</small>{candidate.notes && <p className="candidate-notes">{candidate.notes}</p>}</div>
+                <div className="row-actions"><a href={candidate.linkedin_url} target="_blank" rel="noreferrer">Profile</a><button onClick={() => removeCandidate(candidate.id)}>Remove</button></div>
+              </article>
+            ))}
+          </div>
         </section>
       </div>
     </main>
