@@ -1,9 +1,11 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'RecruitMerge — Recruiting spreadsheets without data entry',
-  description: 'Save candidates while you source. RecruitMerge keeps your candidate spreadsheet clean and organized.'
+  title: 'RecruitMerge — A calmer candidate sourcing workflow',
+  description: 'Capture LinkedIn candidates, prevent duplicates, and keep your recruiting pipeline clean and organized.'
 };
+
+export const viewport = { themeColor: '#f3f5f1' };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return <html lang="en"><body>{children}</body></html>;

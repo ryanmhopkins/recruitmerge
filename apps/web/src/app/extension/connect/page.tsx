@@ -1,9 +1,9 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createSupabaseBrowserClient } from '../../../lib/supabase-browser';
+import { Brand } from '../../components/brand';
 
 const supabase = createSupabaseBrowserClient();
 
@@ -63,7 +63,7 @@ function ExtensionConnectForm() {
     });
   }
 
-  return <main className="auth-page"><div className="auth-card card"><Link className="brand" href="/">RecruitMerge</Link><p className="eyebrow">Chrome extension</p><h1>Connect your candidate capture</h1><p className="muted">This securely links the extension to your RecruitMerge account so candidates appear in your dashboard.</p><button className="button primary full" disabled={!ready || !extensionId} onClick={connect}>Connect extension</button><p className="form-message" role="status">{message}</p></div></main>;
+  return <main className="auth-page"><div className="auth-ambient auth-ambient-one" /><div className="auth-ambient auth-ambient-two" /><div className="auth-card"><Brand /><div className="auth-icon extension-icon" aria-hidden="true">⌁</div><p className="eyebrow">Chrome extension</p><h1>Connect capture to your workspace.</h1><p className="muted">Profiles you save in Chrome will flow securely into your private RecruitMerge candidate list.</p><button className="button primary full" disabled={!ready || !extensionId} onClick={connect}>Connect extension <span aria-hidden="true">→</span></button><p className="form-message" role="status">{message}</p><p className="auth-footnote">You can disconnect or reconnect at any time.</p></div></main>;
 }
 
 export default function ExtensionConnectPage() {
