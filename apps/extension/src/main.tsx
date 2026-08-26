@@ -9,13 +9,31 @@ const empty:Candidate={name:'',title:'',company:'',location:'',linkedinUrl:''};
 
 async function detect():Promise<Candidate>{
   const [tab]=await chrome.tabs.query({active:true,currentWindow:true});
-  if(!tab?.id||!tab.url?.includes('linkedin.com/in/')) return empty;
+  if(!tab?.id||!/^https:\/\/(?:[a-z]{2}\.)?(?:www\.)?linkedin\.com\/in\//i.test(tab.url||'')) return empty;
   const [r]=await chrome.scripting.executeScript({target:{tabId:tab.id},func:()=>{
     const text=(s:string)=>document.querySelector(s)?.textContent?.trim()||'';
-    const name=text('h1');
-    const title=text('.text-body-medium.break-words');
-    const locationText=text('.text-body-small.inline.t-black--light.break-words');
-    return {name,title,company:'',location:locationText,linkedinUrl:window.location.href.split('?')[0]};
+    const clean=(value:string)=>value.replace(/\s+/g,' ').trim();
+    const pageName=clean(document.title.replace(/\s*\|\s*LinkedIn.*$/i,''));
+    const name=clean(text('h1'))||pageName;
+    const lines=(document.body?.innerText||'').split('\n').map(clean).filter(Boolean);
+    const firstNameIndex=lines.findIndex((line)=>line===name);
+    const ignored=/^(?:connect|follow|message|more|home|my network|jobs|messaging|notifications|me|for business)$/i;
+    const headerLines=firstNameIndex>=0?lines.slice(firstNameIndex+1,firstNameIndex+12):[];
+    const selectorHeadline=clean(text('.text-body-medium.break-words'));
+    const headline=selectorHeadline||headerLines.find((line)=>
+      line!==name&&!ignored.test(line)&&!/^·/.test(line)&&!/^\d[\d,]* followers?$/i.test(line)
+    )||'';
+    const secondNameIndex=lines.findIndex((line,index)=>index>firstNameIndex&&line===name);
+    const mainHeader=secondNameIndex>=0?lines.slice(secondNameIndex+1,secondNameIndex+16):headerLines;
+    const headlineIndex=mainHeader.findIndex((line)=>line===headline);
+    const locationFallback=headlineIndex>=0?mainHeader.slice(headlineIndex+1).find((line)=>
+      !ignored.test(line)&&!/^·/.test(line)&&!/^contact info$/i.test(line)&&!/^\d[\d,]* followers?$/i.test(line)
+    )||'':'';
+    const locationText=clean(text('.text-body-small.inline.t-black--light.break-words'))||locationFallback;
+    const companyMatch=headline.match(/\s(?:at|@)\s(.+)$/i);
+    const company=companyMatch?.[1]?.trim()||'';
+    const title=companyMatch?headline.slice(0,companyMatch.index).trim():headline;
+    return {name,title,company,location:locationText,linkedinUrl:window.location.href.split(/[?#]/)[0]};
   }});
   return (r?.result as Candidate)||empty;
 }
