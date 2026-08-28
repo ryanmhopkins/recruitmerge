@@ -7,9 +7,25 @@ import { createSupabaseBrowserClient } from '../../lib/supabase-browser';
 import { Brand } from '../components/brand';
 
 type Candidate = {
-  id: string; name: string; title: string | null; company: string | null;
-  location: string | null; linkedin_url: string; job: string | null;
-  notes: string | null; created_at: string;
+  id: string;
+  name: string;
+  title: string | null;
+  company: string | null;
+  location: string | null;
+  linkedin_url: string;
+  job: string | null;
+  notes: string | null;
+  created_at: string;
+};
+
+type CandidateDraft = {
+  name: string;
+  title: string;
+  company: string;
+  location: string;
+  linkedinUrl: string;
+  job: string;
+  notes: string;
 };
 
 const supabase = createSupabaseBrowserClient();
@@ -26,10 +42,26 @@ function normalizeLinkedInUrl(value: string) {
   }
 }
 
+function pipelineKey(value: string | null) {
+  return value?.trim().toLocaleLowerCase() || 'unassigned';
+}
+
 function csvCell(value: string | null) {
   let safe = value ?? '';
   if (/^[=+\-@\t\r]/.test(safe)) safe = `'${safe}`;
   return `"${safe.replace(/"/g, '""')}"`;
+}
+
+function candidateToDraft(candidate: Candidate): CandidateDraft {
+  return {
+    name: candidate.name,
+    title: candidate.title ?? '',
+    company: candidate.company ?? '',
+    location: candidate.location ?? '',
+    linkedinUrl: candidate.linkedin_url,
+    job: candidate.job ?? '',
+    notes: candidate.notes ?? '',
+  };
 }
 
 export default function DashboardPage() {
@@ -39,10 +71,17 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [query, setQuery] = useState('');
-  const [jobFilter, setJobFilter] = useState('all');
+  const [pipelineFilter, setPipelineFilter] = useState('all');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<CandidateDraft | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
-  const loadCandidates = useCallback(async () => {
-    const { data, error } = await supabase.from('candidates').select(candidateColumns).order('created_at', { ascending: false });
+  const loadCandidates = useCallback(async (userId: string) => {
+    const { data, error } = await supabase
+      .from('candidates')
+      .select(candidateColumns)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
     if (error) setMessage(error.hint || error.message);
     else setCandidates(data ?? []);
   }, []);
@@ -51,25 +90,38 @@ export default function DashboardPage() {
     let active = true;
     supabase.auth.getUser().then(async ({ data }) => {
       if (!active) return;
-      if (!data.user) { router.replace('/login'); return; }
+      if (!data.user) {
+        router.replace('/login');
+        return;
+      }
       setUser(data.user);
-      await loadCandidates();
+      await loadCandidates(data.user.id);
       if (active) setLoading(false);
     });
     return () => { active = false; };
   }, [loadCandidates, router]);
 
-  const jobs = useMemo(() => Array.from(new Set(candidates.map((candidate) => candidate.job).filter((job): job is string => Boolean(job)))).sort(), [candidates]);
+  const pipelines = useMemo(() => {
+    const groups = new Map<string, { label: string; count: number }>();
+    for (const candidate of candidates) {
+      const key = pipelineKey(candidate.job);
+      const existing = groups.get(key);
+      if (existing) existing.count += 1;
+      else groups.set(key, { label: candidate.job?.trim() || 'Unassigned', count: 1 });
+    }
+    return Array.from(groups, ([key, value]) => ({ key, ...value }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [candidates]);
+
   const visibleCandidates = useMemo(() => {
-    const needle = query.trim().toLowerCase();
+    const needle = query.trim().toLocaleLowerCase();
     return candidates.filter((candidate) => {
-      const matchesJob = jobFilter === 'all' || (jobFilter === 'unassigned' ? !candidate.job : candidate.job === jobFilter);
-      if (!matchesJob) return false;
+      if (pipelineFilter !== 'all' && pipelineKey(candidate.job) !== pipelineFilter) return false;
       if (!needle) return true;
       return [candidate.name, candidate.title, candidate.company, candidate.location, candidate.job, candidate.notes]
-        .some((value) => value?.toLowerCase().includes(needle));
+        .some((value) => value?.toLocaleLowerCase().includes(needle));
     });
-  }, [candidates, jobFilter, query]);
+  }, [candidates, pipelineFilter, query]);
 
   async function addCandidate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -80,12 +132,12 @@ export default function DashboardPage() {
     const linkedinUrl = normalizeLinkedInUrl(String(form.get('linkedinUrl')));
     const { error } = await supabase.from('candidates').insert({
       user_id: user.id,
-      name: form.get('name'),
-      title: form.get('title') || null,
-      company: form.get('company') || null,
+      name: String(form.get('name')).trim(),
+      title: String(form.get('title')).trim() || null,
+      company: String(form.get('company')).trim() || null,
       linkedin_url: linkedinUrl,
-      job: form.get('job') || null,
-      notes: form.get('notes') || null,
+      job: String(form.get('job')).trim() || null,
+      notes: String(form.get('notes')).trim() || null,
     });
     if (error) {
       setMessage(error.code === '23505' ? 'Already saved — each LinkedIn profile can appear only once in your list.' : error.hint || error.message);
@@ -93,29 +145,93 @@ export default function DashboardPage() {
     }
     formElement.reset();
     setMessage('Candidate saved.');
-    await loadCandidates();
+    await loadCandidates(user.id);
+  }
+
+  function startEditing(candidate: Candidate) {
+    setEditingId(candidate.id);
+    setDraft(candidateToDraft(candidate));
+    setMessage('');
+  }
+
+  function cancelEditing() {
+    setEditingId(null);
+    setDraft(null);
+  }
+
+  function updateDraft(field: keyof CandidateDraft, value: string) {
+    setDraft((current) => current ? { ...current, [field]: value } : current);
+  }
+
+  async function saveCandidate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!user || !editingId || !draft) return;
+    const name = draft.name.trim();
+    const linkedinUrl = normalizeLinkedInUrl(draft.linkedinUrl);
+    if (!name || !linkedinUrl) {
+      setMessage('Name and LinkedIn URL are required.');
+      return;
+    }
+    setSavingId(editingId);
+    setMessage('');
+    const { data, error } = await supabase
+      .from('candidates')
+      .update({
+        name,
+        title: draft.title.trim() || null,
+        company: draft.company.trim() || null,
+        location: draft.location.trim() || null,
+        linkedin_url: linkedinUrl,
+        job: draft.job.trim() || null,
+        notes: draft.notes.trim() || null,
+      })
+      .eq('id', editingId)
+      .eq('user_id', user.id)
+      .select(candidateColumns)
+      .single();
+
+    setSavingId(null);
+    if (error) {
+      setMessage(error.code === '23505' ? 'That LinkedIn profile is already saved in your workspace.' : error.hint || error.message);
+      return;
+    }
+    setCandidates((items) => items.map((item) => item.id === data.id ? data : item));
+    cancelEditing();
+    setMessage(`${data.name} updated.`);
   }
 
   async function removeCandidate(id: string) {
-    if (!window.confirm('Remove this candidate from your sourcing list?')) return;
-    const { error } = await supabase.from('candidates').delete().eq('id', id);
+    if (!user || !window.confirm('Remove this candidate from your sourcing list?')) return;
+    const { error } = await supabase.from('candidates').delete().eq('id', id).eq('user_id', user.id);
     if (error) setMessage(error.hint || error.message);
-    else setCandidates((items) => items.filter((item) => item.id !== id));
+    else {
+      setCandidates((items) => items.filter((item) => item.id !== id));
+      if (editingId === id) cancelEditing();
+    }
   }
 
   function exportCsv() {
     const header = ['Name', 'Title', 'Company', 'Location', 'LinkedIn URL', 'Job or pipeline', 'Notes', 'Date added'];
     const rows = visibleCandidates.map((candidate) => [
-      candidate.name, candidate.title, candidate.company, candidate.location, candidate.linkedin_url,
-      candidate.job, candidate.notes, new Date(candidate.created_at).toISOString(),
+      candidate.name,
+      candidate.title,
+      candidate.company,
+      candidate.location,
+      candidate.linkedin_url,
+      candidate.job,
+      candidate.notes,
+      new Date(candidate.created_at).toISOString(),
     ]);
-    const csv = `\uFEFF${[header, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n')}`;
+    const csv = `\uFEFF${[header, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n')}\r\n`;
     const href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const anchor = document.createElement('a');
     anchor.href = href;
     anchor.download = `recruitmerge-candidates-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.append(anchor);
     anchor.click();
-    URL.revokeObjectURL(href);
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(href), 0);
+    setMessage(`Exported ${visibleCandidates.length} ${visibleCandidates.length === 1 ? 'candidate' : 'candidates'}.`);
   }
 
   async function signOut() {
@@ -138,23 +254,29 @@ export default function DashboardPage() {
           <label>Name<input name="name" required /></label>
           <label>LinkedIn URL<input name="linkedinUrl" type="url" placeholder="https://www.linkedin.com/in/…" required /></label>
           <div className="form-row"><label>Title<input name="title" /></label><label>Company<input name="company" /></label></div>
-          <label>Job or pipeline<input name="job" /></label>
+          <label>Job / Pipeline<input name="job" /></label>
           <label>Notes<textarea name="notes" rows={3} /></label>
           <button className="button primary full">Save candidate <span aria-hidden="true">→</span></button>
-          {message && <p className="form-message" role="status">{message}</p>}
+          {message ? <p className="form-message" role="status">{message}</p> : null}
         </form>
         <section className="candidate-workspace">
           <div className="candidate-tools">
             <label className="search-field"><span className="sr-only">Search candidates</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, company, job, or notes" /></label>
-            <label className="filter-field"><span className="sr-only">Filter by job or pipeline</span><select value={jobFilter} onChange={(event) => setJobFilter(event.target.value)}><option value="all">All pipelines</option><option value="unassigned">Unassigned</option>{jobs.map((job) => <option key={job} value={job}>{job}</option>)}</select></label>
-            <button className="button export-button" disabled={visibleCandidates.length === 0} onClick={exportCsv}><span aria-hidden="true">↓</span> Export CSV</button>
+            <label className="filter-field"><span className="sr-only">Filter by job or pipeline</span><select value={pipelineFilter} onChange={(event) => setPipelineFilter(event.target.value)}><option value="all">All pipelines ({candidates.length})</option>{pipelines.map((pipeline) => <option key={pipeline.key} value={pipeline.key}>{pipeline.label} ({pipeline.count})</option>)}</select></label>
+            <button className="button export-button" disabled={visibleCandidates.length === 0} onClick={exportCsv}><span aria-hidden="true">↓</span> Export {visibleCandidates.length || ''} CSV</button>
           </div>
-          <p className="result-count muted">Showing {visibleCandidates.length} of {candidates.length}</p>
+          <div className="result-summary"><p className="result-count muted">Showing {visibleCandidates.length} of {candidates.length}</p>{pipelineFilter !== 'all' || query ? <button className="clear-filters" onClick={() => { setQuery(''); setPipelineFilter('all'); }}>Clear filters</button> : null}</div>
           <div className="candidate-list">
-            {candidates.length === 0 ? <div className="card empty"><h2>No candidates yet</h2><p className="muted">Add your first candidate to confirm your workspace is ready.</p></div> : visibleCandidates.length === 0 ? <div className="card empty"><h2>No matches</h2><p className="muted">Try a different search or pipeline filter.</p></div> : visibleCandidates.map((candidate) => (
+            {candidates.length === 0 ? <div className="card empty"><h2>No candidates yet</h2><p className="muted">Add your first candidate to confirm your workspace is ready.</p></div> : visibleCandidates.length === 0 ? <div className="card empty"><h2>No matches</h2><p className="muted">Try a different search or pipeline filter.</p></div> : visibleCandidates.map((candidate) => editingId === candidate.id && draft ? (
+              <form className="card candidate-edit" key={candidate.id} onSubmit={saveCandidate}>
+                <div className="edit-heading"><div><p className="eyebrow">Editing candidate</p><h3>{candidate.name}</h3></div><button type="button" className="close-edit" onClick={cancelEditing} aria-label="Cancel editing">×</button></div>
+                <div className="edit-grid"><label>Name<input value={draft.name} onChange={(event) => updateDraft('name', event.target.value)} required /></label><label>LinkedIn URL<input type="url" value={draft.linkedinUrl} onChange={(event) => updateDraft('linkedinUrl', event.target.value)} required /></label><label>Title<input value={draft.title} onChange={(event) => updateDraft('title', event.target.value)} /></label><label>Company<input value={draft.company} onChange={(event) => updateDraft('company', event.target.value)} /></label><label>Location<input value={draft.location} onChange={(event) => updateDraft('location', event.target.value)} /></label><label>Job / Pipeline<input value={draft.job} onChange={(event) => updateDraft('job', event.target.value)} /></label><label className="edit-notes">Notes<textarea rows={3} value={draft.notes} onChange={(event) => updateDraft('notes', event.target.value)} /></label></div>
+                <div className="edit-actions"><button type="button" className="button secondary" onClick={cancelEditing}>Cancel</button><button className="button primary" disabled={savingId === candidate.id}>{savingId === candidate.id ? 'Saving…' : 'Save changes'} <span aria-hidden="true">→</span></button></div>
+              </form>
+            ) : (
               <article className="card candidate-row" key={candidate.id}>
-                <div className="candidate-avatar" aria-hidden="true">{candidate.name.split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</div><div className="candidate-main"><div className="candidate-name-row"><h3>{candidate.name}</h3><span className="pipeline-chip">{candidate.job || 'Unassigned'}</span></div><p>{[candidate.title, candidate.company].filter(Boolean).join(' · ') || 'No title added'}</p><small>Added {new Date(candidate.created_at).toLocaleDateString()}</small>{candidate.notes && <p className="candidate-notes">{candidate.notes}</p>}</div>
-                <div className="row-actions"><a href={candidate.linkedin_url} target="_blank" rel="noreferrer">Profile</a><button onClick={() => removeCandidate(candidate.id)}>Remove</button></div>
+                <div className="candidate-avatar" aria-hidden="true">{candidate.name.split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</div><div className="candidate-main"><div className="candidate-name-row"><h3>{candidate.name}</h3><span className="pipeline-chip">{candidate.job || 'Unassigned'}</span></div><p>{[candidate.title, candidate.company].filter(Boolean).join(' · ') || 'No title added'}</p><small>{candidate.location ? `${candidate.location} · ` : ''}Added {new Date(candidate.created_at).toLocaleDateString()}</small>{candidate.notes ? <p className="candidate-notes">{candidate.notes}</p> : null}</div>
+                <div className="row-actions"><a href={candidate.linkedin_url} target="_blank" rel="noreferrer">Profile</a><button onClick={() => startEditing(candidate)}>Edit</button><button onClick={() => removeCandidate(candidate.id)}>Remove</button></div>
               </article>
             ))}
           </div>
