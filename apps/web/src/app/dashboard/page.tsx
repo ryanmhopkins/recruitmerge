@@ -64,6 +64,47 @@ function candidateToDraft(candidate: Candidate): CandidateDraft {
   };
 }
 
+function PipelineCombobox({ id, name, value, options, placeholder, onChange }: {
+  id: string;
+  name?: string;
+  value: string;
+  options: string[];
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const needle = value.trim().toLocaleLowerCase();
+  const matchingOptions = needle
+    ? options.filter((option) => option.toLocaleLowerCase().includes(needle))
+    : options;
+
+  return <div className="pipeline-combobox" onBlur={(event) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+  }}>
+    <div className="pipeline-input-wrap">
+      <input
+        id={id}
+        name={name}
+        role="combobox"
+        aria-autocomplete="list"
+        aria-controls={`${id}-options`}
+        aria-expanded={open}
+        value={value}
+        placeholder={placeholder}
+        autoComplete="off"
+        onFocus={() => setOpen(true)}
+        onChange={(event) => { onChange(event.target.value); setOpen(true); }}
+        onKeyDown={(event) => { if (event.key === 'Escape') setOpen(false); }}
+      />
+      <button type="button" className="pipeline-toggle" aria-label="Show saved pipelines" aria-expanded={open} onClick={() => setOpen((current) => !current)}><span aria-hidden="true">⌄</span></button>
+    </div>
+    {open ? <div className="pipeline-menu" id={`${id}-options`} role="listbox">
+      <div className="pipeline-menu-label">Saved pipelines</div>
+      {matchingOptions.length ? matchingOptions.map((option) => <button type="button" role="option" aria-selected={option === value} key={option} onMouseDown={(event) => event.preventDefault()} onClick={() => { onChange(option); setOpen(false); }}><span>{option}</span>{option === value ? <i aria-hidden="true">✓</i> : null}</button>) : <p>No matching pipeline. Keep typing to create “{value.trim()}”.</p>}
+    </div> : null}
+  </div>;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -71,6 +112,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [query, setQuery] = useState('');
+  const [newPipeline, setNewPipeline] = useState('');
   const [pipelineFilter, setPipelineFilter] = useState('all');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<CandidateDraft | null>(null);
@@ -112,6 +154,7 @@ export default function DashboardPage() {
     return Array.from(groups, ([key, value]) => ({ key, ...value }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [candidates]);
+  const pipelineLabels = useMemo(() => pipelines.filter((pipeline) => pipeline.key !== 'unassigned').map((pipeline) => pipeline.label), [pipelines]);
 
   const visibleCandidates = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
@@ -144,6 +187,7 @@ export default function DashboardPage() {
       return;
     }
     formElement.reset();
+    setNewPipeline('');
     setMessage('Candidate saved.');
     await loadCandidates(user.id);
   }
@@ -248,14 +292,13 @@ export default function DashboardPage() {
         <div className="dashboard-account"><span className="account-avatar">{user?.email?.slice(0, 1).toUpperCase()}</span><span className="muted user-email">{user?.email}</span><button className="link-button" onClick={signOut}>Sign out</button></div>
       </nav>
       <section className="dashboard-header"><div><p className="eyebrow"><span className="eyebrow-dot" />Candidate workspace</p><h1>Your sourcing list</h1><p className="muted">A focused view of everyone worth another conversation.</p></div><div className="count-card"><strong>{candidates.length}</strong><span>{candidates.length === 1 ? 'candidate' : 'candidates'} saved</span></div></section>
-      <datalist id="pipeline-options">{pipelines.filter((pipeline) => pipeline.key !== 'unassigned').map((pipeline) => <option key={pipeline.key} value={pipeline.label} />)}</datalist>
       <div className="dashboard-grid">
         <form className="card candidate-form" onSubmit={addCandidate}>
           <div className="form-heading"><span className="form-icon">＋</span><div><h2>Add candidate</h2><p>Save someone manually</p></div></div>
           <label>Name<input name="name" required /></label>
           <label>LinkedIn URL<input name="linkedinUrl" type="url" placeholder="https://www.linkedin.com/in/…" required /></label>
           <div className="form-row"><label>Title<input name="title" /></label><label>Company<input name="company" /></label></div>
-          <label>Job / Pipeline<input name="job" list="pipeline-options" placeholder="Choose an existing pipeline or type a new one" autoComplete="off" /><small className="field-hint">Select a previous pipeline or enter a new name.</small></label>
+          <label htmlFor="new-candidate-pipeline">Job / Pipeline</label><PipelineCombobox id="new-candidate-pipeline" name="job" value={newPipeline} options={pipelineLabels} placeholder="Choose a pipeline or type a new one" onChange={setNewPipeline} /><small className="field-hint">Select a previous pipeline or enter a new name.</small>
           <label>Notes<textarea name="notes" rows={3} /></label>
           <button className="button primary full">Save candidate <span aria-hidden="true">→</span></button>
           {message ? <p className="form-message" role="status">{message}</p> : null}
@@ -271,7 +314,7 @@ export default function DashboardPage() {
             {candidates.length === 0 ? <div className="card empty"><h2>No candidates yet</h2><p className="muted">Add your first candidate to confirm your workspace is ready.</p></div> : visibleCandidates.length === 0 ? <div className="card empty"><h2>No matches</h2><p className="muted">Try a different search or pipeline filter.</p></div> : visibleCandidates.map((candidate) => editingId === candidate.id && draft ? (
               <form className="card candidate-edit" key={candidate.id} onSubmit={saveCandidate}>
                 <div className="edit-heading"><div><p className="eyebrow">Editing candidate</p><h3>{candidate.name}</h3></div><button type="button" className="close-edit" onClick={cancelEditing} aria-label="Cancel editing">×</button></div>
-                <div className="edit-grid"><label>Name<input value={draft.name} onChange={(event) => updateDraft('name', event.target.value)} required /></label><label>LinkedIn URL<input type="url" value={draft.linkedinUrl} onChange={(event) => updateDraft('linkedinUrl', event.target.value)} required /></label><label>Title<input value={draft.title} onChange={(event) => updateDraft('title', event.target.value)} /></label><label>Company<input value={draft.company} onChange={(event) => updateDraft('company', event.target.value)} /></label><label>Location<input value={draft.location} onChange={(event) => updateDraft('location', event.target.value)} /></label><label>Job / Pipeline<input value={draft.job} list="pipeline-options" placeholder="Choose or create a pipeline" autoComplete="off" onChange={(event) => updateDraft('job', event.target.value)} /></label><label className="edit-notes">Notes<textarea rows={3} value={draft.notes} onChange={(event) => updateDraft('notes', event.target.value)} /></label></div>
+                <div className="edit-grid"><label>Name<input value={draft.name} onChange={(event) => updateDraft('name', event.target.value)} required /></label><label>LinkedIn URL<input type="url" value={draft.linkedinUrl} onChange={(event) => updateDraft('linkedinUrl', event.target.value)} required /></label><label>Title<input value={draft.title} onChange={(event) => updateDraft('title', event.target.value)} /></label><label>Company<input value={draft.company} onChange={(event) => updateDraft('company', event.target.value)} /></label><label>Location<input value={draft.location} onChange={(event) => updateDraft('location', event.target.value)} /></label><div><label htmlFor={`edit-pipeline-${candidate.id}`}>Job / Pipeline</label><PipelineCombobox id={`edit-pipeline-${candidate.id}`} value={draft.job} options={pipelineLabels} placeholder="Choose or create a pipeline" onChange={(value) => updateDraft('job', value)} /></div><label className="edit-notes">Notes<textarea rows={3} value={draft.notes} onChange={(event) => updateDraft('notes', event.target.value)} /></label></div>
                 <div className="edit-actions"><button type="button" className="button secondary" onClick={cancelEditing}>Cancel</button><button className="button primary" disabled={savingId === candidate.id}>{savingId === candidate.id ? 'Saving…' : 'Save changes'} <span aria-hidden="true">→</span></button></div>
               </form>
             ) : (
