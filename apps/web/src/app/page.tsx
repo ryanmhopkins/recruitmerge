@@ -38,7 +38,7 @@ export default function Home() {
         <div className="feature-grid">{features.map((feature) => <article className="feature-card" key={feature.number}><span>{feature.number}</span><h3>{feature.title}</h3><p>{feature.copy}</p></article>)}</div>
       </section>
       <section className="beta-banner"><div><p className="eyebrow light">Private beta</p><h2>Build your first calm candidate list.</h2><p>Start free while RecruitMerge is in private beta.</p></div><Link className="button light-button" href="/login">Open RecruitMerge <span aria-hidden="true">→</span></Link></section>
-      <footer><Brand /><span>Purpose-built for focused recruiting.</span></footer>
+      <footer><Brand /><span>Purpose-built for focused recruiting.</span><div className="footer-links"><Link href="/privacy">Privacy</Link><Link href="/support">Support</Link></div></footer>
     </div>
   </main>;
 }
