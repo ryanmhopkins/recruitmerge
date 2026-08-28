@@ -28,6 +28,12 @@ type CandidateDraft = {
   notes: string;
 };
 
+type BillingAccount = {
+  subscription_status: string;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+};
+
 const supabase = createSupabaseBrowserClient();
 const candidateColumns = 'id,name,title,company,location,linkedin_url,job,notes,created_at';
 
@@ -117,6 +123,8 @@ export default function DashboardPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<CandidateDraft | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [billing, setBilling] = useState<BillingAccount | null>(null);
+  const [billingBusy, setBillingBusy] = useState(false);
 
   const loadCandidates = useCallback(async (userId: string) => {
     const { data, error } = await supabase
@@ -128,6 +136,11 @@ export default function DashboardPage() {
     else setCandidates(data ?? []);
   }, []);
 
+  const loadBilling = useCallback(async (userId: string) => {
+    const { data } = await supabase.from('billing_accounts').select('subscription_status,current_period_end,cancel_at_period_end').eq('user_id', userId).maybeSingle();
+    setBilling(data);
+  }, []);
+
   useEffect(() => {
     let active = true;
     supabase.auth.getUser().then(async ({ data }) => {
@@ -137,11 +150,30 @@ export default function DashboardPage() {
         return;
       }
       setUser(data.user);
-      await loadCandidates(data.user.id);
+      await Promise.all([loadCandidates(data.user.id), loadBilling(data.user.id)]);
       if (active) setLoading(false);
     });
     return () => { active = false; };
-  }, [loadCandidates, router]);
+  }, [loadBilling, loadCandidates, router]);
+
+  const isPro = billing?.subscription_status === 'active' || billing?.subscription_status === 'trialing';
+
+  async function openBilling(destination: 'checkout' | 'portal') {
+    setBillingBusy(true);
+    setMessage('');
+    const { data } = await supabase.auth.getSession();
+    const response = await fetch(`/api/stripe/${destination}`, {
+      method: 'POST',
+      headers: data.session?.access_token ? { Authorization: `Bearer ${data.session.access_token}` } : {},
+    });
+    const result = await response.json();
+    setBillingBusy(false);
+    if (!response.ok || !result.url) {
+      setMessage(result.error || 'Billing is temporarily unavailable.');
+      return;
+    }
+    window.location.assign(result.url);
+  }
 
   const pipelines = useMemo(() => {
     const groups = new Map<string, { label: string; count: number }>();
@@ -289,9 +321,9 @@ export default function DashboardPage() {
     <main className="dashboard-page">
       <nav className="dashboard-nav">
         <Brand />
-        <div className="dashboard-account"><span className="account-avatar">{user?.email?.slice(0, 1).toUpperCase()}</span><span className="muted user-email">{user?.email}</span><button className="link-button" onClick={signOut}>Sign out</button></div>
+        <div className="dashboard-account"><span className={`plan-pill ${isPro ? 'pro' : ''}`}>{isPro ? 'Pro' : 'Free'}</span><span className="account-avatar">{user?.email?.slice(0, 1).toUpperCase()}</span><span className="muted user-email">{user?.email}</span><button className="link-button" onClick={signOut}>Sign out</button></div>
       </nav>
-      <section className="dashboard-header"><div><p className="eyebrow"><span className="eyebrow-dot" />Candidate workspace</p><h1>Your sourcing list</h1><p className="muted">A focused view of everyone worth another conversation.</p></div><div className="count-card"><strong>{candidates.length}</strong><span>{candidates.length === 1 ? 'candidate' : 'candidates'} saved</span></div></section>
+      <section className="dashboard-header"><div><p className="eyebrow"><span className="eyebrow-dot" />Candidate workspace</p><h1>Your sourcing list</h1><p className="muted">A focused view of everyone worth another conversation.</p></div><div className="dashboard-summary"><div className="count-card"><strong>{candidates.length}</strong><span>{candidates.length === 1 ? 'candidate' : 'candidates'} saved</span></div><button className={`button billing-button ${isPro ? 'secondary' : 'primary'}`} disabled={billingBusy} onClick={() => openBilling(isPro ? 'portal' : 'checkout')}>{billingBusy ? 'Opening…' : isPro ? 'Manage plan' : 'Upgrade to Pro'}</button></div></section>
       <div className="dashboard-grid">
         <form className="card candidate-form" onSubmit={addCandidate}>
           <div className="form-heading"><span className="form-icon">＋</span><div><h2>Add candidate</h2><p>Save someone manually</p></div></div>

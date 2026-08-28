@@ -11,7 +11,7 @@ export default function Home() {
   return <main className="marketing-page">
     <div className="ambient ambient-one" /><div className="ambient ambient-two" />
     <div className="shell">
-      <nav className="nav"><Brand /><div className="nav-actions"><a href="#workflow">How it works</a><Link className="button button-small secondary" href="/login">Sign in</Link></div></nav>
+      <nav className="nav"><Brand /><div className="nav-actions"><a href="#workflow">How it works</a><a href="#pricing">Pricing</a><Link className="button button-small secondary" href="/login">Sign in</Link></div></nav>
       <section className="hero">
         <div className="hero-copy">
           <div className="eyebrow"><span className="eyebrow-dot" />A calmer recruiting workflow</div>
@@ -37,7 +37,14 @@ export default function Home() {
         <div className="section-heading"><div><p className="eyebrow">Designed for focus</p><h2>Less admin. More thoughtful sourcing.</h2></div><p>One lightweight workflow from discovery to an organized shortlist.</p></div>
         <div className="feature-grid">{features.map((feature) => <article className="feature-card" key={feature.number}><span>{feature.number}</span><h3>{feature.title}</h3><p>{feature.copy}</p></article>)}</div>
       </section>
-      <section className="beta-banner"><div><p className="eyebrow light">Private beta</p><h2>Build your first calm candidate list.</h2><p>Start free while RecruitMerge is in private beta.</p></div><Link className="button light-button" href="/login">Open RecruitMerge <span aria-hidden="true">→</span></Link></section>
+      <section id="pricing" className="pricing-section">
+        <div className="section-heading"><div><p className="eyebrow">Simple pricing</p><h2>Start organized. Upgrade when you’re ready.</h2></div><p>No setup fee. Manage or cancel your subscription from your dashboard.</p></div>
+        <div className="pricing-grid">
+          <article className="price-card"><p className="eyebrow">Free</p><div className="price"><strong>$0</strong><span>forever</span></div><h3>A focused place to begin.</h3><ul><li>Candidate capture</li><li>Duplicate protection</li><li>Search and pipeline organization</li></ul><Link className="button secondary full" href="/login">Start free</Link></article>
+          <article className="price-card price-card-pro"><span className="recommended">Most focused</span><p className="eyebrow light">RecruitMerge Pro</p><div className="price"><strong>$15</strong><span>/ month</span></div><h3>For recruiters building active pipelines.</h3><ul><li>Everything in Free</li><li>Unlimited candidate workspace</li><li>CSV export and future Pro tools</li></ul><Link className="button light-button full" href="/login">Get RecruitMerge Pro <span aria-hidden="true">→</span></Link></article>
+        </div>
+      </section>
+      <section className="beta-banner"><div><p className="eyebrow light">Ready when you are</p><h2>Build your first calm candidate list.</h2><p>Start free, then move to Pro as your sourcing workflow grows.</p></div><Link className="button light-button" href="/login">Open RecruitMerge <span aria-hidden="true">→</span></Link></section>
       <footer><Brand /><span>Purpose-built for focused recruiting.</span><div className="footer-links"><Link href="/privacy">Privacy</Link><Link href="/support">Support</Link></div></footer>
     </div>
   </main>;
