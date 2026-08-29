@@ -15,7 +15,7 @@ export default function Home() {
       <section className="hero">
         <div className="hero-copy">
           <h1>Save candidates. Skip the busywork.</h1>
-          <p>Capture profiles, prevent duplicates, and keep every search organized.</p>
+          <p>Capture LinkedIn profiles, prevent duplicates, and keep every search organized.</p>
           <div className="actions"><Link className="button primary" href="/login">Start free <span aria-hidden="true">→</span></Link><a className="text-link" href="#workflow">See how it works</a></div>
           <div className="trust-row"><span><i>✓</i> Passwordless sign-in</span><span><i>✓</i> Private by default</span><span><i>✓</i> CSV-ready</span></div>
         </div>
