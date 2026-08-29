@@ -44,7 +44,7 @@ export default function Home() {
         </div>
       </section>
       <section className="beta-banner"><div><p className="eyebrow light">Ready to source?</p><h2>Build a cleaner candidate list.</h2><p>Start with 5 saves a month. Upgrade when you need unlimited.</p></div><Link className="button light-button" href="/login">Start free <span aria-hidden="true">→</span></Link></section>
-      <footer><Brand /><span>Purpose-built for focused recruiting.</span><div className="footer-links"><Link href="/privacy">Privacy</Link><Link href="/support">Support</Link></div></footer>
+      <footer><Brand /><span>Purpose-built for focused recruiting.</span><div className="footer-links"><Link href="/privacy">Privacy</Link><Link href="/support">Support</Link><Link href="/contact">Contact</Link></div></footer>
     </div>
   </main>;
 }

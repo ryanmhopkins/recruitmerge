@@ -16,11 +16,11 @@ const help = [
 export default function SupportPage() {
   return <main className="legal-page">
     <div className="legal-shell">
-      <nav className="legal-nav"><Brand /><Link href="/privacy">Privacy</Link></nav>
+      <nav className="legal-nav"><Brand /><Link href="/contact">Contact</Link></nav>
       <section className="support-hero"><p className="eyebrow">RecruitMerge support</p><h1>How can we help?</h1><p>Quick answers for the candidate capture workflow and your private workspace.</p></section>
       <section className="support-grid">{help.map(([title, copy]) => <article className="support-card" key={title}><h2>{title}</h2><p>{copy}</p></article>)}</section>
-      <section className="support-contact"><div><h2>Still need help?</h2><p>Open a support request in the RecruitMerge GitHub repository. Never include candidate details, access tokens, passwords, or other sensitive information.</p></div><a className="button primary" href="https://github.com/ryanmhopkins/recruitmerge/issues/new" target="_blank" rel="noreferrer">Open a support request <span aria-hidden="true">↗</span></a></section>
-      <footer className="legal-footer"><Brand /><div><Link href="/privacy">Privacy</Link><Link href="/support">Support</Link></div></footer>
+      <section className="support-contact"><div><h2>Still need help?</h2><p>Send a private message to the RecruitMerge support inbox. Never include candidate details, access tokens, or passwords.</p></div><Link className="button primary" href="/contact">Contact support <span aria-hidden="true">→</span></Link></section>
+      <footer className="legal-footer"><Brand /><div><Link href="/privacy">Privacy</Link><Link href="/support">Support</Link><Link href="/contact">Contact</Link></div></footer>
     </div>
   </main>;
 }
