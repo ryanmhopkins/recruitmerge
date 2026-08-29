@@ -40,11 +40,11 @@ export default function Home() {
       <section id="pricing" className="pricing-section">
         <div className="section-heading"><div><p className="eyebrow">Simple pricing</p><h2>Start free. Go unlimited with Pro.</h2></div><p>No setup fee. Cancel anytime.</p></div>
         <div className="pricing-grid">
-          <article className="price-card"><p className="eyebrow">Free</p><div className="price"><strong>$0</strong><span>forever</span></div><h3>For occasional sourcing.</h3><ul><li><strong>25 candidate saves per month</strong></li><li>Duplicate protection</li><li>Pipelines, search, and CSV export</li></ul><Link className="button secondary full" href="/login">Start free</Link></article>
+          <article className="price-card"><p className="eyebrow">Free</p><div className="price"><strong>$0</strong><span>forever</span></div><h3>For occasional sourcing.</h3><ul><li><strong>5 candidate saves per month</strong></li><li>Duplicate protection</li><li>Pipelines, search, and CSV export</li></ul><Link className="button secondary full" href="/login">Start free</Link></article>
           <article className="price-card price-card-pro"><span className="recommended">Best value</span><p className="eyebrow light">RecruitMerge Pro</p><div className="price"><strong>$15</strong><span>/ month</span></div><h3>For active sourcing.</h3><ul><li>Everything in Free</li><li className="pricing-highlight"><strong>Unlimited candidates</strong></li><li>Access to new Pro tools</li></ul><Link className="button light-button full" href="/login">Go unlimited <span aria-hidden="true">→</span></Link></article>
         </div>
       </section>
-      <section className="beta-banner"><div><p className="eyebrow light">Ready to source?</p><h2>Build a cleaner candidate list.</h2><p>Start with 25 saves a month. Upgrade when you need unlimited.</p></div><Link className="button light-button" href="/login">Start free <span aria-hidden="true">→</span></Link></section>
+      <section className="beta-banner"><div><p className="eyebrow light">Ready to source?</p><h2>Build a cleaner candidate list.</h2><p>Start with 5 saves a month. Upgrade when you need unlimited.</p></div><Link className="button light-button" href="/login">Start free <span aria-hidden="true">→</span></Link></section>
       <footer><Brand /><span>Purpose-built for focused recruiting.</span><div className="footer-links"><Link href="/privacy">Privacy</Link><Link href="/support">Support</Link></div></footer>
     </div>
   </main>;
