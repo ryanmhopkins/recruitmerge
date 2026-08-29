@@ -14,8 +14,7 @@ export default function Home() {
       <nav className="nav"><Brand /><div className="nav-actions"><a href="#workflow">How it works</a><a href="#pricing">Pricing</a><Link className="button button-small secondary" href="/login">Sign in</Link></div></nav>
       <section className="hero">
         <div className="hero-copy">
-          <div className="eyebrow"><span className="eyebrow-dot" />Calmer candidate sourcing</div>
-          <h1>Save LinkedIn candidates without the spreadsheet busywork.</h1>
+          <h1>Save candidates. Skip the busywork.</h1>
           <p>Capture profiles, prevent duplicates, and keep every search organized.</p>
           <div className="actions"><Link className="button primary" href="/login">Start free <span aria-hidden="true">→</span></Link><a className="text-link" href="#workflow">See how it works</a></div>
           <div className="trust-row"><span><i>✓</i> Passwordless sign-in</span><span><i>✓</i> Private by default</span><span><i>✓</i> CSV-ready</span></div>
