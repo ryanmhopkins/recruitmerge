@@ -2,9 +2,9 @@ import Link from 'next/link';
 import { Brand } from './components/brand';
 
 const features = [
-  { number: '01', title: 'Capture without context switching', copy: 'Open the extension on any LinkedIn profile and save a clean candidate record in seconds.' },
-  { number: '02', title: 'Keep every list calm and clean', copy: 'RecruitMerge normalizes URLs, catches duplicates, and keeps notes attached to the right person.' },
-  { number: '03', title: 'Move your data when you need it', copy: 'Search and filter your workspace, then export a spreadsheet-ready CSV in one click.' },
+  { number: '01', title: 'Save from LinkedIn', copy: 'Capture key profile details in one click.' },
+  { number: '02', title: 'Stay organized', copy: 'Prevent duplicates and keep notes with the right candidate.' },
+  { number: '03', title: 'Keep control', copy: 'Filter pipelines and export your list to CSV.' },
 ];
 
 export default function Home() {
@@ -14,10 +14,10 @@ export default function Home() {
       <nav className="nav"><Brand /><div className="nav-actions"><a href="#workflow">How it works</a><a href="#pricing">Pricing</a><Link className="button button-small secondary" href="/login">Sign in</Link></div></nav>
       <section className="hero">
         <div className="hero-copy">
-          <div className="eyebrow"><span className="eyebrow-dot" />A calmer recruiting workflow</div>
-          <h1>Turn LinkedIn profiles into an organized candidate pipeline.</h1>
-          <p>RecruitMerge quietly captures the details, removes duplicates, and keeps your sourcing work ready for the next step.</p>
-          <div className="actions"><Link className="button primary" href="/login">Start your workspace <span aria-hidden="true">→</span></Link><a className="text-link" href="#workflow">Explore the workflow</a></div>
+          <div className="eyebrow"><span className="eyebrow-dot" />Calmer candidate sourcing</div>
+          <h1>Save LinkedIn candidates without the spreadsheet busywork.</h1>
+          <p>Capture profiles, prevent duplicates, and keep every search organized.</p>
+          <div className="actions"><Link className="button primary" href="/login">Start free <span aria-hidden="true">→</span></Link><a className="text-link" href="#workflow">See how it works</a></div>
           <div className="trust-row"><span><i>✓</i> Passwordless sign-in</span><span><i>✓</i> Private by default</span><span><i>✓</i> CSV-ready</span></div>
         </div>
         <div className="product-preview" aria-label="RecruitMerge candidate capture preview">
@@ -34,17 +34,17 @@ export default function Home() {
         </div>
       </section>
       <section id="workflow" className="workflow-section">
-        <div className="section-heading"><div><p className="eyebrow">Designed for focus</p><h2>Less admin. More thoughtful sourcing.</h2></div><p>One lightweight workflow from discovery to an organized shortlist.</p></div>
+        <div className="section-heading"><div><p className="eyebrow">How it works</p><h2>From profile to pipeline in seconds.</h2></div><p>Capture, organize, and export—without breaking your flow.</p></div>
         <div className="feature-grid">{features.map((feature) => <article className="feature-card" key={feature.number}><span>{feature.number}</span><h3>{feature.title}</h3><p>{feature.copy}</p></article>)}</div>
       </section>
       <section id="pricing" className="pricing-section">
-        <div className="section-heading"><div><p className="eyebrow">Simple pricing</p><h2>Start organized. Upgrade when you’re ready.</h2></div><p>No setup fee. Manage or cancel your subscription from your dashboard.</p></div>
+        <div className="section-heading"><div><p className="eyebrow">Simple pricing</p><h2>Start free. Go unlimited with Pro.</h2></div><p>No setup fee. Cancel anytime.</p></div>
         <div className="pricing-grid">
-          <article className="price-card"><p className="eyebrow">Free</p><div className="price"><strong>$0</strong><span>forever</span></div><h3>A focused place to begin.</h3><ul><li>Candidate capture</li><li>Duplicate protection</li><li>Search and pipeline organization</li></ul><Link className="button secondary full" href="/login">Start free</Link></article>
-          <article className="price-card price-card-pro"><span className="recommended">Most focused</span><p className="eyebrow light">RecruitMerge Pro</p><div className="price"><strong>$15</strong><span>/ month</span></div><h3>For recruiters building active pipelines.</h3><ul><li>Everything in Free</li><li>Unlimited candidate workspace</li><li>CSV export and future Pro tools</li></ul><Link className="button light-button full" href="/login">Get RecruitMerge Pro <span aria-hidden="true">→</span></Link></article>
+          <article className="price-card"><p className="eyebrow">Free</p><div className="price"><strong>$0</strong><span>forever</span></div><h3>For occasional sourcing.</h3><ul><li><strong>25 candidate saves per month</strong></li><li>Duplicate protection</li><li>Pipelines, search, and CSV export</li></ul><Link className="button secondary full" href="/login">Start free</Link></article>
+          <article className="price-card price-card-pro"><span className="recommended">Best value</span><p className="eyebrow light">RecruitMerge Pro</p><div className="price"><strong>$15</strong><span>/ month</span></div><h3>For active sourcing.</h3><ul><li>Everything in Free</li><li className="pricing-highlight"><strong>Unlimited candidates</strong></li><li>Access to new Pro tools</li></ul><Link className="button light-button full" href="/login">Go unlimited <span aria-hidden="true">→</span></Link></article>
         </div>
       </section>
-      <section className="beta-banner"><div><p className="eyebrow light">Ready when you are</p><h2>Build your first calm candidate list.</h2><p>Start free, then move to Pro as your sourcing workflow grows.</p></div><Link className="button light-button" href="/login">Open RecruitMerge <span aria-hidden="true">→</span></Link></section>
+      <section className="beta-banner"><div><p className="eyebrow light">Ready to source?</p><h2>Build a cleaner candidate list.</h2><p>Start with 25 saves a month. Upgrade when you need unlimited.</p></div><Link className="button light-button" href="/login">Start free <span aria-hidden="true">→</span></Link></section>
       <footer><Brand /><span>Purpose-built for focused recruiting.</span><div className="footer-links"><Link href="/privacy">Privacy</Link><Link href="/support">Support</Link></div></footer>
     </div>
   </main>;
